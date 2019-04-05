@@ -39,13 +39,17 @@ class GazetaDoPovoSpider(scrapy.Spider):
         self.log('Entrou em %s' % response.url)
         def extract_with_html(query):
             return response.xpath(query).get(default='')
-
+        
         title = extract_with_html('//h1[@class="c-title"]/text()')
         author = extract_with_html('//div[@class="c-credits mobile-hide"]//span/text()')
         date = extract_with_html('//div[@class="c-credits mobile-hide"]//li[3]/text()')
         section = extract_with_html('//div[@class="c-mobile-relative"]//span/text()')
         text = response.xpath('//div[@class="col-8 c-content"]//p/text()').getall()
         text = "".join(text)
+
+        if(not section):
+            return
+
 
         item = RiLab01Item()
         item[title] = title
