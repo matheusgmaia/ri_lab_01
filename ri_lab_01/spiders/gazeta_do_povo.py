@@ -4,12 +4,17 @@ import json
 
 from ri_lab_01.items import RiLab01Item
 from ri_lab_01.items import RiLab01CommentItem
+from scrapy.loader import ItemLoader
 
 
 class GazetaDoPovoSpider(scrapy.Spider):
     name = 'gazeta_do_povo'
     allowed_domains = ['gazetadopovo.com.br']
     start_urls = [""]
+    blacklist = ["colunistas", "blogs"]
+    went_urls = [""]
+    count = 0
+    limit = 100
 
     def __init__(self, *a, **kw):
         super(GazetaDoPovoSpider, self).__init__(*a, **kw)
@@ -23,10 +28,15 @@ class GazetaDoPovoSpider(scrapy.Spider):
         #
 
         # follow links to author pages
-        blacklist = ["colunistas", "blogs"]
+        
         for href in response.xpath('//article//a//@href').getall():
-            if not any( blocked in href for blocked in blacklist):
-                yield response.follow(href, self.parse_article)
+            if not any( blocked in href for blocked in self.blacklist):
+                #Para tentar evitar alguns sites que não são artigos, como tabela de campeonato e seções do site
+                if(href[-1] != "/"): 
+                    if(self.count > self.limit):
+                        break
+                    self.went_urls.append(href)
+                    yield response.follow(href, self.parse_article)
             
 
         '''page = response.url.split("/")[-2]
@@ -40,23 +50,26 @@ class GazetaDoPovoSpider(scrapy.Spider):
         def extract_with_html(query):
             return response.xpath(query).get(default='')
         
-        title = extract_with_html('//h1[@class="c-title"]/text()')
-        author = extract_with_html('//div[@class="c-credits mobile-hide"]//span/text()')
-        date = extract_with_html('//div[@class="c-credits mobile-hide"]//li[3]/text()')
-        section = extract_with_html('//div[@class="c-mobile-relative"]//span/text()')
+        l = ItemLoader(item=RiLab01Item(), response=response)
+
+
         text = response.xpath('//div[@class="col-8 c-content"]//p/text()').getall()
         text = "".join(text)
+        
+        title = response.xpath('//h1[@class="c-title"]/text()').get()
+        
 
-        if(not section):
-            return
+        
+        l.add_value('_id', title)        
+        l.add_value('title', title)        
+        l.add_value('sub_title', "")        
+        l.add_xpath('author', "//div[@class='c-credits mobile-hide']//span")
+        l.add_xpath('date', "//div[@class='c-credits mobile-hide']//li[3]")
+        l.add_xpath('section', "//div[@class='c-mobile-relative']//span")
+        l.add_value('text', text)
+        l.add_value('url', response.url)
 
+        self.count += 1
+        return l.load_item()
 
-        item = RiLab01Item()
-        item[title] = title
-        item[author] = tauthoritle
-        item[date] = date
-        item[section] = section
-        item[text] = text
-        item[url] = response.url
-
-        yield item
+#Fiz o básico, ficaram algumas duvidas, era bom um "gabarito"
